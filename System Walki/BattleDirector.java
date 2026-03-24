@@ -6,12 +6,12 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ObjectMap;
 
 public class BattleDirector {
-    //REFERENCJE
-    private Array<Fighter> FighterRegistry = new Array<>();
+    // REFERENCJE
+    private Array<Fighter> FighterRegistry;
     private ObjectMap<Fighter, Array<Fighter>> FighterMap = new ObjectMap<>();
 
-    //PARAMETRY
-    private float Difficulty = 0.01f; // maly = duza trudnosc, czeste odwiezanie
+    // PARAMETRY
+    private float updateInterval = 0.25f;
     private float currentTime = 0f;
 
     // WEKTORY GLOBALNE
@@ -23,7 +23,7 @@ public class BattleDirector {
 
     public void update(float delta) {
         currentTime += delta;
-        if (currentTime >= Difficulty) {
+        if (currentTime >= updateInterval) {
             assignRole();
             currentTime = 0f;
         }
@@ -52,7 +52,7 @@ public class BattleDirector {
             // Punktacja wrogów
             for (int k = 0; k < FighterRegistry.size; k++) {
                 Fighter f2 = FighterRegistry.get(k);
-                float score = 1000;
+                float score = 1000f;
                 boolean isCurrentTerrified = false;
 
                 if (f2 != f && f.getTeam() != f2.getTeam()) {
@@ -60,33 +60,30 @@ public class BattleDirector {
                     float myPower = f.getStats().attackDamage + f.getStats().strongAttackDamage;
                     float enemyPower = f2.getStats().attackDamage + f2.getStats().strongAttackDamage;
 
-                    score -= dist;
+                    // Zmniejszony wpływ dystansu, żeby zapobiec ciągłym zmianom celu
+                    score -= (dist * 2f);
 
                     // Aggro na gracza
                     if (!(f2.getController() instanceof AIInput)) {
-                        score += 10000f;
+                        score += 5000f;
                     }
 
-                    // Lojalność celu
                     if (ai.getTarget() == f2) {
-                        score += 500f;
+                        score += 2000f;
                     }
 
-                    // Status HP i Stagger
                     score += f2.getStats().maxHealth - f2.getCurrentHealth();
-                    if (f2.getFighterState() == FighterState.STAGGERED) score += 500;
+                    if (f2.getFighterState() == FighterState.STAGGERED) score += 500f;
 
-                    // Kalkulacja siły
                     if (enemyPower > myPower) {
                         score -= (enemyPower - myPower) * 5;
                         if (enemyPower - myPower > 50) {
-                            isCurrentTerrified = true;
+                            isCurrentTerrified = MathUtils.randomBoolean(0.2f);
                         }
                     } else {
                         score += (myPower - enemyPower) * 5;
                     }
 
-                    // Kalkulacja zasięgu
                     if (f2.getStats().range > f.getStats().range) {
                         score -= (f2.getStats().range - f.getStats().range);
                         isCurrentTerrified = true;
@@ -94,21 +91,18 @@ public class BattleDirector {
                         score += (f.getStats().range - f2.getStats().range);
                     }
 
-                    // Kalkulacja staminy
                     if (f2.getCurrentStamina() > f.getCurrentStamina() && (f.getCurrentStamina() / f.getStats().maxStamina) < 0.3f && (f2.getCurrentStamina() / f2.getStats().maxStamina) > 0.5f) {
-                        score /= 2;
+                        score *= 0.5f;
                     }
 
-                    // Kara za tłok
                     if (FighterMap.containsKey(f2)) {
                         int attackersCount = FighterMap.get(f2).size;
                         if (ai.getTarget() != f2) {
-                            if (attackersCount == 1) score -= 1000f;
-                            if (attackersCount >= 2) score -= 10000f;
+                            if (attackersCount == 1) score -= 1500f;
+                            if (attackersCount >= 2) score -= 5000f;
                         }
                     }
 
-                    // Aktualizacja faworyta
                     if (score > bestScore) {
                         bestScore = score;
                         bestTarget = f2;
@@ -117,10 +111,13 @@ public class BattleDirector {
                 }
             }
 
-            if (bestTarget == null) continue;
+            if (bestTarget == null) {
+                ai.setOrder(null, Role.WATCHER, f.getPosition(), false);
+                continue;
+            }
 
             if (!FighterMap.containsKey(bestTarget)) {
-                FighterMap.put(bestTarget, new Array<>());
+                FighterMap.put(bestTarget, new Array<Fighter>());
             }
 
             Array<Fighter> attackers = FighterMap.get(bestTarget);
@@ -133,7 +130,7 @@ public class BattleDirector {
 
             if (isTerrified) {
                 assignedRole = Role.STALLER;
-                orderPoint.x += side * 150f;
+                orderPoint.x += side * 500f;
             } else if (attackers.size == 0) {
                 assignedRole = Role.AGRESSOR;
                 orderPoint.x += side * attackDist;
@@ -151,11 +148,11 @@ public class BattleDirector {
                 token = false;
 
                 float angle = (attackers.size * 60f) * MathUtils.degRad;
-                orderPoint.x += MathUtils.cos(angle) * 850f * side;
-                orderPoint.y += MathUtils.sin(angle) * 800f;
+                float watcherRadius = 200f + (attackers.size * 10f);
+                orderPoint.x += MathUtils.cos(angle) * watcherRadius;
+                orderPoint.y += MathUtils.sin(angle) * watcherRadius;
             }
 
-            // Wydanie rozkazu
             ai.setOrder(bestTarget, assignedRole, orderPoint, token);
             attackers.add(f);
         }

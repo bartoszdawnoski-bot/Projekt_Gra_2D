@@ -20,7 +20,6 @@ public class AIInput implements FighterController {
     private float intelligence = 1f;
 
     //STAŁE PARAMETRY AI
-    private final float AVOID_RADIUS = 90f;
     private final float MARGIN = 100f;
     private final float ESCAPE_FORCE = 5.0f;
     private final float SLIDE_FORCE = 5.0f;
@@ -53,16 +52,30 @@ public class AIInput implements FighterController {
         return target;
     }
 
+    public Role getCurrentRole() {
+        return currentRole;
+    }
+
     @Override
     public boolean wantsToAttack() {
         if (target == null || target.getFighterState() == FighterState.DEAD || !hasAttackToken) return false;
         if (self.getFighterState() == FighterState.STAGGERED) return false;
 
-        float distX = Math.abs(self.getPosition().x - target.getPosition().x);
-        float distY = Math.abs(self.getPosition().y - target.getPosition().y);
+        float currentX = self.getPosition().x;
+        float targetX = target.getPosition().x;
+        float facingX = self.getFacingDirection().x;
+        boolean botIsToTheLeft = currentX < targetX;
 
-        if (distX < (self.getStats().range + 30f) && distY < 20f) {
-            return MathUtils.randomBoolean(0.6f * intelligence);
+        boolean facingRightDirection = (botIsToTheLeft && facingX == 1) || (!botIsToTheLeft && facingX == -1);
+        if (!facingRightDirection) return false;
+
+        float targetDistanceX = Math.abs(currentX - targetX);
+
+        if (targetDistanceX <= (self.getStats().range + 10f)) {
+            float distY = Math.abs(self.getPosition().y - target.getPosition().y);
+            if (distY < self.getStats().range) {
+                return MathUtils.randomBoolean(0.6f * intelligence);
+            }
         }
         return false;
     }
@@ -72,14 +85,22 @@ public class AIInput implements FighterController {
         if(target == null || !hasAttackToken || target.getFighterState() == FighterState.DEAD) return false;
         if(self.getFighterState() == FighterState.STAGGERED) return false;
 
-        float distX = Math.abs(self.getPosition().x - target.getPosition().x);
-        float distY = Math.abs(self.getPosition().y - target.getPosition().y);
+        float currentX = self.getPosition().x;
+        float targetX = target.getPosition().x;
+        float facingX = self.getFacingDirection().x;
+        boolean botIsToTheLeft = currentX < targetX;
+        boolean facingRightDirection = (botIsToTheLeft && facingX == 1) || (!botIsToTheLeft && facingX == -1);
+        if (!facingRightDirection) return false;
 
-        if (distX < (self.getStats().range + 30f) && distY < 20f) {
-            FighterState enemyState = target.getFighterState();
-
-            if(enemyState == FighterState.STAGGERED || enemyState == FighterState.BLOCKING) return MathUtils.randomBoolean(0.6f * intelligence);
-            return MathUtils.randomBoolean(0.1f * intelligence);
+        float targetDistanceX = Math.abs(currentX - targetX);
+        if (targetDistanceX <= (self.getStats().range + 10f)) {
+            float distY = Math.abs(self.getPosition().y - target.getPosition().y);
+            if (distY < self.getStats().range) {
+                FighterState enemyState = target.getFighterState();
+                if (enemyState == FighterState.STAGGERED || enemyState == FighterState.BLOCKING)
+                    return MathUtils.randomBoolean(0.6f * intelligence);
+                return MathUtils.randomBoolean(0.1f * intelligence);
+            }
         }
         return false;
     }
@@ -93,12 +114,16 @@ public class AIInput implements FighterController {
             return false;
         }
 
-        boolean enemyIsAttacik = (target.getFighterState() == FighterState.ATTACKING || target.getFighterState() == FighterState.DEAD);
+        boolean enemyIsAttacik = (target.getFighterState() == FighterState.ATTACKING && target.getFighterState() != FighterState.DEAD);
         float dist = self.getPosition().dst(target.getPosition());
-        boolean enemyIsClose = dist < target.getStats().range + 40f;
+        boolean enemyIsClose = (dist < target.getStats().range + 40f);
+
+        float roleModifier = 1.0f;
+        if (currentRole == Role.STALLER) roleModifier = 1.5f;
+        else if (currentRole == Role.AGRESSOR) roleModifier = 0.6f;
 
         if(enemyIsAttacik && enemyIsClose) {
-            if(Math.random() < 0.3f * intelligence) {
+            if(Math.random() < 0.3f * intelligence * roleModifier) {
                 dodgeTimer = 2.0f;
                 return true;
             }
@@ -121,7 +146,12 @@ public class AIInput implements FighterController {
         if (enemyIsAttacking && enemyIsClose) {
             if (!playerAttackSpotted) {
                 playerAttackSpotted = true;
-                if (Math.random() < 0.70f * intelligence) {
+
+                float roleModifier = 1.0f;
+                if (currentRole == Role.STALLER) roleModifier = 1.5f;
+                else if (currentRole == Role.AGRESSOR) roleModifier = 0.5f;
+
+                if (Math.random() < 0.70f * intelligence * roleModifier) {
                     blockTimer = 0.5f;
                     return true;
                 }
@@ -134,10 +164,16 @@ public class AIInput implements FighterController {
 
     @Override
     public boolean wantsToSprint() {
+        if (currentRole == Role.WATCHER) return false;
         if (target == null || self.getFighterState() == FighterState.DEAD) return false;
         float distToPoint = targetPoint.dst(self.getPosition());
+        float distToBack = targetPoint.dst(self.getPosition());
 
-        if(distToPoint > 300f && self.getCurrentStamina() > self.getStats().maxStamina * 0.5f) {
+        if(currentRole == Role.FLANKER && distToBack > 200f && self.getCurrentStamina() > self.getStats().maxStamina * 0.4f) {
+            return true;
+        }
+
+        if((distToPoint > 300f && self.getCurrentStamina() > self.getStats().maxStamina * 0.4f) || self.getStats().maxHealth <= self.getStats().maxHealth * 0.4f){
             return true;
         }
         return false;
@@ -154,70 +190,86 @@ public class AIInput implements FighterController {
         // Obrót do celu
         self.getFacingDirection().x = (target.getPosition().x > self.getPosition().x) ? 1 : -1;
 
-        // Blokada ruchu podczas akcji
-        FighterState state = self.getFighterState();
-        if (state == FighterState.ATTACKING || state == FighterState.STRONG_ATTACKING ||
-            state == FighterState.STAGGERED || state == FighterState.BLOCKING) {
-            return movementVector;
-        }
-
-        // Dystans i wektor do celu
+        // Wektor od bota do przypisanego punktu
         tempToTarget.set(targetPoint).sub(self.getPosition());
         float distToPoint = tempToTarget.len();
 
         if (distToPoint < 20f) {
             return movementVector.setZero();
-        }
+       }
 
-        // --- SPALENIE SZYBKOŚCI ---
-        // Boty są teraz znacznie wolniejsze. Agresor (0.7f), reszta (0.4f).
-        float speedMult = hasAttackToken ? 0.7f : 0.4f;
+        // LOGIKA ZALEŻNA OD ROLI
+        float speedMult = 0.4f;
+        float targetWeight = 0.1f;
+        baseMove.setZero();
+
+        switch (currentRole) {
+            case AGRESSOR:
+                speedMult = 1f;
+                targetWeight = 0.6f;
+
+                if (distToPoint > 15f) {
+                    baseMove.set(tempToTarget.x, tempToTarget.y * 5f).nor().scl(speedMult);
+                } else {
+                    baseMove.set(tempToTarget).nor().scl(speedMult);
+                }
+                break;
+
+            case FLANKER:
+                speedMult = 0.6f;
+                targetWeight = 0.3f;
+
+                Vector2 toTarget = new Vector2(self.getPosition()).sub(target.getPosition());
+                Vector2 circleMove = new Vector2(-toTarget.y, toTarget.x).nor().scl(speedMult * 0.5f);
+
+                baseMove.set(tempToTarget).nor().add(circleMove).nor().scl(speedMult);
+                break;
+
+            case STALLER:
+                speedMult = 0.9f;
+                targetWeight = 0.4f;
+                baseMove.set(tempToTarget).nor().scl(speedMult);
+                break;
+
+            case WATCHER:
+                speedMult = 0.3f;
+                targetWeight = 0.05f;
+                baseMove.set(tempToTarget).nor().scl(speedMult);
+                break;
+        }
 
         if (distToPoint < 120f) {
-            speedMult *= (distToPoint / 120f);
+            baseMove.scl(distToPoint / 120f);
         }
 
-        // Agresywne wyrównanie osi Y z daleka
-        if (distToPoint > 15f) {
-            baseMove.set(tempToTarget.x, tempToTarget.y * 5f).nor().scl(speedMult);
-        } else {
-            baseMove.set(tempToTarget).nor().scl(speedMult);
-        }
-
+        // SYSTEM SEPARACJI
         separation.setZero();
         int obstacles = 0;
         boolean criticalOverlap = false;
+        float dRange = 100f;
+        float sMultipler = 6f;
 
-        // Separacja i ślizg
         for (int i = 0; i < fighters.size; i++) {
             Fighter f = fighters.get(i);
 
             if (f != self && f != target && f.getFighterState() != FighterState.DEAD) {
                 float d = self.getPosition().dst(f.getPosition());
 
-                // Zwiększony promień unikania (z 90 na 100), żeby się nie kleili
-                if (d < 100f && d > 1) {
+                if (d < dRange && d > 1f) {
                     obstacles++;
                     tempPush.set(self.getPosition()).sub(f.getPosition()).nor();
-                    float weight = (100f - d) / 100f;
+                    float weight = (dRange - d) / dRange;
 
-                    // Krytyczne nałożenie (stoją na sobie)
-                    if (d < 50f) criticalOverlap = true;
+                    if (d < 30f) criticalOverlap = true;
 
-                    // Mocniejsze odpychanie
-                    separation.add(tempPush.x * weight * 6.0f, tempPush.y * weight * 6.0f);
+                    separation.add(tempPush.x * weight * sMultipler, tempPush.y * weight * sMultipler);
 
-                    // Inteligentny ślizg
                     float slideX = 0;
                     float slideY = 0;
                     if (Math.abs(tempPush.y) > Math.abs(tempPush.x)) {
-                        if (Math.abs(self.getPosition().x - f.getPosition().x) > 1.5f)
-                            slideX = (self.getPosition().x > f.getPosition().x) ? 1f : -1f;
-                        else slideX = (self.hashCode() > f.hashCode()) ? 1f : -1f;
+                        slideX = (self.getPosition().x > f.getPosition().x) ? 1f : -1f;
                     } else {
-                        if (Math.abs(self.getPosition().y - f.getPosition().y) > 1.5f)
-                            slideY = (self.getPosition().y > f.getPosition().y) ? 1f : -1f;
-                        else slideY = (self.hashCode() > f.hashCode()) ? 1f : -1f;
+                        slideY = (self.getPosition().y > f.getPosition().y) ? 1f : -1f;
                     }
                     separation.add(slideX * weight * SLIDE_FORCE, slideY * weight * SLIDE_FORCE);
                 }
@@ -230,24 +282,23 @@ public class AIInput implements FighterController {
         if (self.getPosition().y < MARGIN) { separation.add(0, ESCAPE_FORCE); obstacles++; }
         else if (self.getPosition().y > self.getScreenHeightEnd() - 50f - MARGIN) { separation.add(0, -ESCAPE_FORCE); obstacles++; }
 
-        // --- ŁĄCZENIE SIŁ (REBALANS) ---
+        //APLIKACJA WAG
         if (criticalOverlap) {
-            // Jeśli stoją na sobie, ruch do celu jest ZEROWANY. Tylko ucieczka na boki!
             movementVector.set(separation).nor().scl(speedMult);
         } else if (obstacles > 0) {
-            // Ruch do celu ma tylko 5% wpływu (0.05), separacja ma 95% (0.95).
-            // To rozbije każdą grupę, bo boty przestaną się pchać na gracza przez plecy kolegów.
-            movementVector.set(baseMove).scl(0.05f).add(separation.scl(0.95f)).nor().scl(speedMult);
+            float sepWeight = 1.0f - targetWeight;
+            movementVector.set(baseMove).scl(targetWeight).add(separation.scl(sepWeight)).nor().scl(speedMult);
         } else {
             movementVector.set(baseMove);
         }
 
-        // Wyciąganie ze stłuczki
+        // Wyciąganie
         if (obstacles > 0 && movementVector.len() < 0.2f && distToPoint > 20f) {
             escapeToCenter.set(900f - self.getPosition().x, 500f - self.getPosition().y).nor();
             movementVector.set(escapeToCenter).scl(speedMult);
         }
 
         return movementVector;
+
     }
 }

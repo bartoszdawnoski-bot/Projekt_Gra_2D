@@ -2,6 +2,8 @@ package com.walka.kibolgrad;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.math.Vector2;
@@ -10,6 +12,8 @@ import com.badlogic.gdx.graphics.GL20;
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class MainGame extends ApplicationAdapter {
     private ShapeRenderer shapeRenderer;
+    private SpriteBatch spriteBatch;
+    private BitmapFont myFont;
     private Array<Fighter> allFighters;
     private Array<Fighter> playersFighters;
     private Array<Fighter> enemiesFighters;
@@ -75,14 +79,16 @@ public class MainGame extends ApplicationAdapter {
     @Override
     public void create() {
         shapeRenderer = new ShapeRenderer();
+        spriteBatch =  new SpriteBatch();
+        myFont = new BitmapFont();
         allFighters = new Array<>();
         playersFighters = new Array<>();
         enemiesFighters = new Array<>();
         playersAI = new Array<>();
         enemiesAI = new Array<>();
 
-        FighterStats playerStats = new FighterStats(20, 5, 15, 30);
-        FighterStats enemyStats = new FighterStats(8, 25, 5, 10);
+        FighterStats playerStats = new FighterStats(5, 5, 5, 10);
+        FighterStats enemyStats = new FighterStats(5, 5, 5, 10);
 
         for(int i = 1; i <= playersNum; i++) {
             playersAI.add(new AIInput(allFighters));
@@ -96,7 +102,7 @@ public class MainGame extends ApplicationAdapter {
             enemiesAI.get(i - 1).setSelf(enemiesFighters.get(i - 1));
         }
 
-        playersFighters.add(new Fighter(new Vector2(150,500), new PlayerInput(), playerStats, Team.PLAYERS));
+       // playersFighters.add(new Fighter(new Vector2(150,500), new PlayerInput(), playerStats, Team.PLAYERS));
 
         for(Fighter fighter : playersFighters) {
             allFighters.add(fighter);
@@ -143,10 +149,19 @@ public class MainGame extends ApplicationAdapter {
             f.drawStatusBars(shapeRenderer);
         }
         shapeRenderer.end();
+
+        spriteBatch.begin();
+        for(int i = 0; i < allFighters.size; i++){
+            Fighter f = allFighters.get(i);
+            f.fontDebug(spriteBatch, myFont);
+        }
+        spriteBatch.end();
+
     }
 
     @Override
     public void dispose() {
         shapeRenderer.dispose();
+        spriteBatch.dispose();
     }
 }

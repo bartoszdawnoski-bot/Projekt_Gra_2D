@@ -3,6 +3,8 @@ package com.walka.kibolgrad;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 
@@ -97,8 +99,9 @@ public class Fighter {
                 } else {
                     if (!moveInput.isZero()) {
                         state = FighterState.MOVING;
+                        float inputMagnitude = Math.min(1f, moveInput.len());
                         velocity.add(moveInput.x * stats.acceleration * delta, moveInput.y * stats.acceleration * delta);
-                        velocity.limit(stats.speed);
+                        velocity.limit(stats.speed * inputMagnitude);
                         if (moveInput.x != 0) {
                             facingDirection.set(moveInput.x > 0 ? 1 : -1, 0);
                         }
@@ -122,7 +125,7 @@ public class Fighter {
             case ATTACKING: {
                 velocity.scl(stats.friction);
 
-                if (stateTimer > stats.attackDuration * 0.2f && stateTimer < stats.attackDuration * 0.8f) {
+                if (stateTimer > stats.attackDuration * 0.2f && stateTimer < stats.attackDuration * 0.5f) {
                     float hitX = position.x + (facingDirection.x * stats.range);
                     if (facingDirection.x == -1) {
                         hitX = position.x + (facingDirection.x * stats.range) + hitWidth / 1.5f;
@@ -142,7 +145,7 @@ public class Fighter {
             case STRONG_ATTACKING: {
                 velocity.scl(stats.friction);
 
-                if (stateTimer > stats.strongAttackDuration * 0.2f && stateTimer < stats.strongAttackDuration * 0.8f) {
+                if (stateTimer > stats.strongAttackDuration * 0.2f && stateTimer < stats.strongAttackDuration * 0.5f) {
                     float hitX = position.x + (facingDirection.x * stats.range);
                     if (facingDirection.x == -1) {
                         hitX = position.x + (facingDirection.x * stats.range) + hitWidth / 1.5f;
@@ -192,8 +195,9 @@ public class Fighter {
                     currentStamina -= 5f * delta;
 
                     if (!moveInput.isZero()) {
-                        velocity.add(moveInput.x * stats.acceleration * 0.5f * delta, moveInput.y * stats.acceleration * 0.5f * delta);
-                        velocity.limit(stats.speed * 0.3f);
+                        float inputMagnitude = Math.min(1f, moveInput.len());
+                        velocity.add(moveInput.x * stats.acceleration * delta, moveInput.y * stats.acceleration * delta);
+                        velocity.limit(stats.speed * inputMagnitude);
                         facingDirection.set(moveInput).nor();
                         if (moveInput.x != 0) facingDirection.set(moveInput.x > 0 ? 1 : -1, 0);
                     } else {
@@ -303,6 +307,22 @@ public class Fighter {
         }
     }
 
+    public void fontDebug(SpriteBatch batch, BitmapFont font) {
+        if(this.controller instanceof AIInput)
+        {
+            if(this.state == FighterState.DEAD) return;
+            float drawX = position.x;
+            float drawY = position.y;
+
+            if(((AIInput) this.controller).getCurrentRole() == Role.AGRESSOR) font.draw(batch, "AGRESSOR", drawX, drawY);
+            else if (((AIInput) this.controller).getCurrentRole() == Role.FLANKER) font.draw(batch, "FLANKER", drawX, drawY);
+            else if (((AIInput) this.controller).getCurrentRole() == Role.STALLER) font.draw(batch, "STALER", drawX, drawY);
+            else if (((AIInput) this.controller).getCurrentRole() == Role.WATCHER) font.draw(batch, "WATCHER", drawX, drawY);
+
+        } else return;
+
+    }
+
     public void drawStatusBars(ShapeRenderer shape) {
         if (state == FighterState.DEAD) return;
 
@@ -340,7 +360,10 @@ public class Fighter {
             shape.setColor(Color.WHITE);
             shape.rect((startX + (barWidth / 2) - singWidth / 2), startY + (2 * barHeight) + (2 * spacing), singWidth, singHeight);
         }
+
     }
+
+
 
     // NARZĘDZIA I FIZYKA
     public void push(float forceX, float forceY) {

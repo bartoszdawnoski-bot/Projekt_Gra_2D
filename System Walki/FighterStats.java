@@ -53,15 +53,12 @@ public class FighterStats {
         this.strongAttackDuration = Math.max(0.5f, 1.1f - (dexterity * 0.02f));
 
         // WAGA
-        this.speed = Math.max(100f, 300f + (dexterity * 5f) - (weight * 2f)) * 0.5f;
+        this.speed = Math.max(50f, 150f + (dexterity * 5f) - (weight * 2f)) ;
         this.sprintSpeed = this.speed * 1.6f;
-        this.acceleration = Math.max(800f, 3000f - (weight * 40f));
+        this.acceleration = Math.max(800f, 1500f - (weight * 40f));
         this.sprintAcceleration = this.acceleration * 1.5f;
         this.dodgeCost = 15f + (weight * 0.4f) - (dexterity * 0.2f);
         this.staminaRegen = Math.max(5f, 25f - (weight * 0.3f) + (dexterity * 0.2f)) * 4;
-
-        // OBRONA
-        this.dodgeCost = Math.max(10f, 35f - (dexterity * 0.5f));
 
     }
 }
