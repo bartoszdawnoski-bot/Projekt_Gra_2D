@@ -9,10 +9,11 @@ public class Projectile {
     public Rectangle hitBox;
     public Team ownerTeam;
     public float damage;
-    public float lifeTime = 2f;
+    public float lifeTime = 0.5f;
     public float explosionRange = 0f;
     public boolean isDestroyed = false;
     public boolean isExplosive = false;
+    public boolean freeExplosion = false;
 
     public Projectile(float x, float y, float speedX, Team team, float damage, boolean isExplosive, float explosionRange) {
         this.position = new Vector2(x, y);
@@ -32,5 +33,9 @@ public class Projectile {
         if (lifeTime <= 0) {
             isDestroyed = true;
         }
+    }
+
+    public Vector2 getPositon(){
+        return position;
     }
 }

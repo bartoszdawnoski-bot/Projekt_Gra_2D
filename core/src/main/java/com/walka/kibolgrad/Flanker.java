@@ -46,7 +46,7 @@ public class Flanker implements AiLogicModule {
             boolean playerVulnerable = target.getFighterState() == FighterState.STAGGERED || target.getFighterState() == FighterState.ATTACKING;
 
             if (playerFacingAway || playerVulnerable) {
-                return MathUtils.randomBoolean(0.9f * intelligence);
+                return MathUtils.randomBoolean(0.7f * intelligence);
             } else {
                 // ZWIĘKSZONO prawdopodobieństwo ataku od frontu
                 return MathUtils.randomBoolean(0.25f * intelligence);

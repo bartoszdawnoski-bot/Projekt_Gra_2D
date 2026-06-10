@@ -37,7 +37,7 @@ public class Aggressor implements AiLogicModule {
         if (targetDistanceX <= attackThreshold) {
             float distY = Math.abs(self.getPosition().y - target.getPosition().y);
             if (distY < self.getStats().range) {
-                return MathUtils.randomBoolean(0.8f * intelligence);
+                return MathUtils.randomBoolean(0.5f * intelligence);
             }
         }
         return false;
