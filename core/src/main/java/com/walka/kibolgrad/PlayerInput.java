@@ -7,10 +7,7 @@ import com.badlogic.gdx.Input;
 public class PlayerInput implements FighterController{
 
     @Override
-    public boolean wantsToAttack() {
-        if (DevManager.isPointerOverUI || MainGame.isHoveringOverUI) return false;
-        return Gdx.input.isButtonJustPressed(Input.Buttons.LEFT);
-    }
+    public boolean wantsToAttack() {return Gdx.input.isButtonJustPressed(Input.Buttons.LEFT);}
 
     @Override
     public boolean wantsToStrongAttack() { return Gdx.input.isKeyJustPressed(Input.Keys.ALT_LEFT); }
@@ -22,7 +19,6 @@ public class PlayerInput implements FighterController{
 
     @Override
     public boolean wantsToBlock() {
-        if (DevManager.isPointerOverUI || MainGame.isHoveringOverUI) return false;
         return  Gdx.input.isButtonPressed(Input.Buttons.RIGHT);
     }
 

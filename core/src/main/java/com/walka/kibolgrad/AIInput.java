@@ -4,150 +4,147 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
 
-public class AIInput implements FighterController {
-    // REFERENCJE
+
+public class AIInput implements FighterController{
     private Fighter self;
     private Array<Fighter> fighters;
     private Fighter target;
+    private float scanTime = 0;
+    private float behaviorTimer = 0;
+    private int currentBehavior = 0;
+    private float blockTimer = 0;
+    private float reactionTimer = 0;
+    private boolean playerAttackSpotted = false;
 
-    // MODUŁY MYŚLENIA (Mózgi)
-    private AiLogicModule currentBrain;
-    private final Aggressor aggressorLogic = new Aggressor();
-    private final Flanker flankerLogic = new Flanker();
-    private final Watcher watcherLogic = new Watcher();
-    private final Staller stallerLogic = new Staller();
-
-    // STAN
-    private Role currentRole;
-    private boolean hasAttackToken = false;
-    private final Vector2 targetPoint = new Vector2();
-
-    // WEKTORY GLOBALNE DO FIZYKI
-    private final Vector2 movementVector = new Vector2();
-    private final Vector2 separation = new Vector2();
-    private final Vector2 tempPush = new Vector2();
-    private final float SLIDE_FORCE = 5.0f;
-
-    public AIInput(Array<Fighter> fighters) {
-        this.fighters = fighters;
-        this.currentBrain = aggressorLogic;
-    }
-
-    public void setSelf(Fighter self) { this.self = self; }
-    public void setAllFighters(Array<Fighter> fighters) {
+    public AIInput(Array<Fighter> fighters)
+    {
         this.fighters = fighters;
     }
-    public Fighter getTarget() { return target; }
-    public Role getCurrentRole() { return currentRole; }
 
-    public void setOrder(Fighter target, Role role, Vector2 targetPoint, boolean hasAttackToken) {
-        this.target = target;
-        this.targetPoint.set(targetPoint);
-        this.hasAttackToken = hasAttackToken;
+    public void setSelf(Fighter self)
+    {
+        this.self = self;
+    }
 
-        if (this.currentRole != role || this.currentBrain == null) {
-            this.currentRole = role;
+    public  void closestTarget()
+    {
+        float minDistance = Float.MAX_VALUE;
+        Fighter closets = null;
 
-            switch (role) {
-                case AGRESSOR:
-                    this.currentBrain = aggressorLogic;
-                    break;
-                case FLANKER:
-                    this.currentBrain = flankerLogic;
-                    break;
-                case WATCHER:
-                    this.currentBrain = watcherLogic;
-                    break;
-                case STALLER:
-                    this.currentBrain = stallerLogic;
-                    break;
+        for (Fighter f : fighters)
+        {
+            if(f.getTeam() != self.getTeam() && f.getFighterState() != FighterState.DEAD && f != self)
+            {
+                float dist = self.getPosition().dst(f.getPosition());
+                if(dist < minDistance)
+                {
+                    minDistance = dist;
+                    closets = f;
+                }
             }
         }
+        this.target = closets;
     }
+
 
     @Override
     public boolean wantsToAttack() {
-        if (!hasAttackToken || DevManager.freezeBots) return false;
-        return currentBrain.wantsToAttack(self, target);
+        if(target == null || self.getFighterState() == FighterState.STAGGERED) return false;
+
+        float distance = self.getPosition().dst(target.getPosition());
+
+        if (self.getCurrentStamina() < 20) return false;
+
+        return currentBehavior == 0 && distance <= self.getStats().range + 20f && Math.random() < 0.07;
     }
 
     @Override
-    public boolean wantsToStrongAttack() {
-        if (!hasAttackToken || DevManager.freezeBots) return false;
-        return currentBrain.wantsToStrongAttack(self, target);
-    }
+    public boolean wantsToStrongAttack() {return false; }
 
     @Override
     public boolean wantsToDodge() {
-        if (DevManager.freezeBots) return false;
-        return currentBrain.wantsToDodge(self, target);
+        return false;
     }
 
     @Override
     public boolean wantsToBlock() {
-        if (DevManager.freezeBots) return false;
-        return currentBrain.wantsToBlock(self, target);
+        if (target == null) return false;
+
+        if (blockTimer > 0) {
+            blockTimer -= Gdx.graphics.getDeltaTime();
+            return true;
+        }
+
+        boolean playerIsAttacking = (target.getFighterState() == FighterState.ATTACKING);
+        if (playerIsAttacking && !playerAttackSpotted) {
+            playerAttackSpotted = true;
+            reactionTimer = 0.2f;
+        }
+
+        if (!playerIsAttacking) {
+            playerAttackSpotted = false;
+            reactionTimer = 0;
+        }
+
+        if (playerAttackSpotted) {
+            reactionTimer -= Gdx.graphics.getDeltaTime();
+            if (reactionTimer <= 0 && Math.random() < 0.6) {
+                blockTimer = 0.5f;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override
     public boolean wantsToSprint() {
-        if (DevManager.freezeBots) return false;
-        return currentBrain.wantsToSprint(self, target, targetPoint);
+        return false;
     }
 
-    // --- RUCH I FIZYKA (OMIJANIE SOJUSZNIKÓW) ---
     @Override
     public Vector2 getMovementDirection() {
-        movementVector.setZero();
-        if (target == null || self == null || target.getFighterState() == FighterState.DEAD || DevManager.freezeBots) {
-            return movementVector;
-        }
-        self.getFacingDirection().x = (target.getPosition().x > self.getPosition().x) ? 1 : -1;
+        scanTime += Gdx.graphics.getDeltaTime();
+        behaviorTimer += Gdx.graphics.getDeltaTime();
 
-        Vector2 baseMove = currentBrain.getMovement(self, target, targetPoint);
-        if (baseMove.isZero()) return movementVector.setZero();
-
-        separation.setZero();
-        float dRange = 100f;
-        boolean nearWall = false;
-        float MARGIN = 80f;
-
-        if (self.getPosition().x < self.getScreenWidthStart() + MARGIN) {
-            separation.add(5f, 0);
-            nearWall = true;
-        } else if (self.getPosition().x > self.getScreenWidthEnd() - self.getStats().width - MARGIN) {
-            separation.add(-5f, 0);
-            nearWall = true;
+        if(scanTime >= 0.5f || target == null || target.getFighterState() == FighterState.DEAD) {
+            this.closestTarget();
+            scanTime = 0;
         }
 
-        if (self.getPosition().y < self.getScreenHeightStart() + MARGIN) {
-            separation.add(0, 5f);
-            nearWall = true;
-        } else if (self.getPosition().y > self.getScreenHeightEnd() - self.getStats().height - MARGIN) {
-            separation.add(0, -5f);
-            nearWall = true;
+        Vector2 vector = new Vector2();
+        if(target == null || self == null) return vector;
+        float dist = self.getPosition().dst(target.getPosition());
+
+        if(behaviorTimer > 1.2f) {
+            float r = (float)Math.random();
+            if(r < 0.7f) currentBehavior = 0;
+            else if(r < 0.9f) currentBehavior = 1;
+            else currentBehavior = 2;
+            behaviorTimer = 0;
         }
 
-        for (int i = 0; i < fighters.size; i++) {
-            Fighter f = fighters.get(i);
-            if (f != self && f != target && f.getFighterState() != FighterState.DEAD) {
-                float d = self.getPosition().dst(f.getPosition());
+        float time = self.getStateTimer();
 
-                if (d < dRange && d > 1f) {
-                    tempPush.set(self.getPosition()).sub(f.getPosition()).nor();
-                    float weight = (dRange - d) / dRange;
-
-                    separation.add(tempPush.x * weight * 6f, tempPush.y * weight * 6f);
-                }
-            }
+        if (currentBehavior == 0) {
+            float drift = (float)Math.sin(time * 2f) * 0.5f;
+            vector.set(target.getPosition().x - self.getPosition().x,
+                target.getPosition().y - self.getPosition().y + (drift * 60f));
+        }
+        else if (currentBehavior == 1) {
+            vector.set(self.getPosition().x - target.getPosition().x,
+                self.getPosition().y - target.getPosition().y);
+        }
+        else {
+            float jitter = (float)Math.sin(time * 4f) > 0 ? 1 : -1;
+            vector.set(jitter * 40f, (float)Math.cos(time * 2f) * 30f);
         }
 
-        if (nearWall) {
-            movementVector.set(baseMove).scl(0.3f).add(separation.scl(0.7f)).nor();
-        } else {
-            movementVector.set(baseMove).scl(0.6f).add(separation.scl(0.4f)).nor();
+        if (dist < 40f) {
+            vector.add(self.getPosition().x - target.getPosition().x,
+                self.getPosition().y - target.getPosition().y).scl(2f);
         }
 
-        return movementVector;
+        return vector.nor();
     }
 }

@@ -12,21 +12,19 @@ public class FighterStats {
     public float maxStamina = 100f;
     public float speed = 250f;
     public float sprintSpeed = 450f;
-    public float attackDuration = 0.6f;
-    public float strongAttackDuration = 1.2f;
+    public float attackDuration = 0.5f;
+    public float strongAttackDuration = 1.0f;
     public float attackDamage;
     public float strongAttackDamage;
-    public float damageReduction;
-    public float knockbackPower;
 
     // Stałe fizyczne i wymiary
     public float acceleration = 2000f;
     public float sprintAcceleration = 3000f;
     public float friction = 0.85f;
     public float staminaRegen = 20f;
-    public float range = 30f;
-    public float height = 80f;
-    public float width = 35f;
+    public float range = 60f;
+    public float height = 100f;
+    public float width = 50f;
 
     //koszty akcji
     public float strongAttackCost = 35f;
@@ -45,32 +43,25 @@ public class FighterStats {
 
     public void recalculate() {
         // SIŁA
-        this.maxHealth = 50f + (strength * 10f) + (weight * 2f);
+        this.maxHealth = 50f + (strength * 10f);
+        this.attackDamage = strength * 2f;
+        this.strongAttackDamage = strength * 5f;
 
-        this.attackDamage = 10f + (strength * 1.5f);
-        this.strongAttackDamage = 25f + (strength * 3.5f);
-
-        this.knockbackPower = 600f + (strength * 15f) + (weight * 10f);
-
-        //ZRĘCZNOŚĆ
+        // ZRĘCZNOŚĆ
         this.maxStamina = 100f + (dexterity * 5f);
-        this.attackDuration = 0.6f / (1f + (dexterity * 0.05f));
-        this.strongAttackDuration = 1.2f / (1f + (dexterity * 0.04f));
+        this.attackDuration = Math.max(0.2f, 0.6f - (dexterity * 0.015f));
+        this.strongAttackDuration = Math.max(0.5f, 1.1f - (dexterity * 0.02f));
 
-        //OBRONA
-        this.damageReduction = Math.min(0.8f, defense * 0.015f);
-
-        //WAGA I FIZYKA
-        this.speed = Math.max(50f, 150f + (dexterity * 5f) - (weight * 2f));
+        // WAGA
+        this.speed = Math.max(100f, 300f + (dexterity * 5f) - (weight * 2f));
         this.sprintSpeed = this.speed * 1.6f;
-
-        this.acceleration = Math.max(800f, 1500f - (weight * 40f));
+        this.acceleration = Math.max(800f, 3000f - (weight * 40f));
         this.sprintAcceleration = this.acceleration * 1.5f;
+        this.dodgeCost = 15f + (weight * 0.4f) - (dexterity * 0.2f);
+        this.staminaRegen = Math.max(5f, 25f - (weight * 0.3f) + (dexterity * 0.2f)) * 4;
 
-        this.dodgeCost = Math.max(10f, 15f + (weight * 0.4f) - (dexterity * 0.2f));
-        this.staminaRegen = Math.max(5f, 25f - (weight * 0.3f) + (dexterity * 0.8f));
+        // OBRONA
+        this.dodgeCost = Math.max(10f, 35f - (dexterity * 0.5f));
 
-        this.attackCost = 15f;
-        this.strongAttackCost = 35f;
     }
 }
