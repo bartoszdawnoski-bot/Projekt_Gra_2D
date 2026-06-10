@@ -43,7 +43,7 @@ public class ScenarioBuilder {
         config.addEnemyTeamMember(enemy1);
 
         FighterStats enemy2Stats = new FighterStats(20, 5, 10, 20);
-        Fighter enemy2 = new Fighter(new Vector2(1000, 600), new AIInput(null), enemy2Stats, Team.ENEMIES, "chuje", false);
+        Fighter enemy2 = new Fighter(new Vector2(1000, 600), new AIInput(null), enemy2Stats, Team.ENEMIES, "sosna", false);
         config.addEnemyTeamMember(enemy2);
 
         FighterStats enemy3Stats = new FighterStats(5, 20, 5, 10);

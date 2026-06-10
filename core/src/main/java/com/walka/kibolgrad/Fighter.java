@@ -178,6 +178,19 @@ public class Fighter {
             pFrames.add(new TextureRegion(new Texture(Gdx.files.internal("cios_1_KFC_0002.png"))));
             pFrames.add(new TextureRegion(new Texture(Gdx.files.internal("cios_1_KFC_0003.png"))));
         }
+        else if (lowerClub.equals("sosna")) {
+            this.idleFrame = new TextureRegion(new Texture(Gdx.files.internal("Postac_Gorole_0001.png")));
+
+            rFrames.add(new TextureRegion(new Texture(Gdx.files.internal("Bieg_2_Gorole_0001.png"))));
+            rFrames.add(new TextureRegion(new Texture(Gdx.files.internal("Bieg_2_Gorole_0002.png"))));
+            rFrames.add(new TextureRegion(new Texture(Gdx.files.internal("Bieg_2_Gorole_0003.png"))));
+            rFrames.add(new TextureRegion(new Texture(Gdx.files.internal("Bieg_2_Gorole_0004.png"))));
+            rFrames.add(new TextureRegion(new Texture(Gdx.files.internal("Bieg_2_Gorole_0005.png"))));
+
+            pFrames.add(new TextureRegion(new Texture(Gdx.files.internal("cios_1_Gorole_0001.png"))));
+            pFrames.add(new TextureRegion(new Texture(Gdx.files.internal("cios_1_Gorole_0002.png"))));
+            pFrames.add(new TextureRegion(new Texture(Gdx.files.internal("cios_1_Gorole_0003.png"))));
+        }
         else {
             this.idleFrame = new TextureRegion(new Texture(Gdx.files.internal("Postac.png")));
         }
